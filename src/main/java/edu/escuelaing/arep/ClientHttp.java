@@ -4,35 +4,51 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 public class ClientHttp {
     public static void main(String... args) throws IOException {
-        Socket echoSocket = null;
-        PrintWriter out = null;
-        BufferedReader in = null;
-
+        ServerSocket ss = null;
         try {
-            echoSocket = new Socket("127.0.0.1", 35000);
-            out = new PrintWriter(echoSocket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
-        } catch (UnknownHostException e) {
-            System.err.println("Host desconocido");
-            System.exit(1);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            int port = getPort();
+            ss = new ServerSocket(port);
+            boolean running = true;
+            while (running) {
+                Socket client = ss.accept();
 
-        BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-        String userInput;
-        while ((userInput = stdIn.readLine()) != null) {
-            out.println(userInput);
-            System.out.println(in.readLine());
+                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                PrintWriter out = new PrintWriter(client.getOutputStream());
+
+                String line;
+                while ((line = in.readLine()) != null) {
+                    System.out.println("Listo para recibir...");
+                    if (line.length() == 0)
+                        break;
+                    out.print(line + "\r\n");
+                }
+
+                out.close();
+                in.close();
+                client.close();
+            }
+            ss.close();
         }
-        out.close();
-        in.close();
-        stdIn.close();
-        echoSocket.close();
+        catch (Exception e) {
+            System.err.println(e);
+        }
+    }
+
+    public String processRequest(String params) {
+        return "HTTP/1.1 200 \r\n" 
+                + "Content-Type: application/json\r\n" 
+                + "Connection: close\r\n";
+    }
+
+    static int getPort() {
+        if (System.getenv("PORT") != null) {
+            return Integer.parseInt(System.getenv("PORT"));
+        }
+        return 8080; // returns default port if heroku-port isn't set (i.e. on localhost)
     }
 }
